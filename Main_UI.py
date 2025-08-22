@@ -14,7 +14,7 @@ class Face_Recognation_System:
         self.root.attributes('-fullscreen', True)
 
 
-        # ==================== Background Image ====================
+        # ==================== Background Image =========================
         img_bg = Image.open(r"C:\Users\Asus\OneDrive\Desktop\Acadamic\Final Project\Face Recognation\UI Image\background.jpg")
         img_bg = img_bg.resize((1530, 790), Image.LANCZOS)
         self.photoimg_bg = ImageTk.PhotoImage(img_bg)

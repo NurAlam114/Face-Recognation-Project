@@ -14,9 +14,22 @@ class Student_Details:
         self.root.geometry('1530x790+0+0')
         self.root.title("Face Recognation System")
 
-        # root = Tk()
-        # root.geometry("1200x600")
-        #self.root.attributes('-fullscreen', True)
+        # variables
+        # self.var_dep = StringVar()
+        # self.var_course = StringVar()
+        # self.var_year = StringVar()
+        # self.var_semester = StringVar()
+        # self.var_std_id = StringVar()
+        # self.var_std_name = StringVar()
+        # self.var_sec = StringVar()
+        # self.var_roll = StringVar()
+        # self.var_gender = StringVar()
+        # self.var_email = StringVar()
+        # self.var_phone = StringVar()
+        # self.var_address = StringVar()
+        # self.var_blood = StringVar()
+        # self.var_nationality = StringVar()
+        # self.var_photo = StringVar(value="No") 
 
         # ==================== Background Image ====================
         img_bg = Image.open(r"C:\Users\Asus\OneDrive\Desktop\Acadamic\Final Project\Face Recognation\UI Image\background.jpg")
@@ -184,8 +197,7 @@ class Student_Details:
         # Radio Button
         photo_var = StringVar(value="No") 
         style = ttk.Style()
-        style.configure(
-        "Bold.TRadiobutton", 
+        style.configure("Bold.TRadiobutton", 
         font=("times new roman", 12, "bold"))
 
         radiobtn1 = ttk.Radiobutton(student_details_frame,text='Take Photo Sample',value="Yes",variable=photo_var,style="Bold.TRadiobutton",)
@@ -264,6 +276,14 @@ class Student_Details:
     def back_to_details(self):
         self.root.destroy()
         subprocess.Popen(["python", "Main_UI.py"], shell=True)
+
+
+
+
+
+        # Data add function
+
+        #def add_data(self):
 
 
 
