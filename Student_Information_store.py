@@ -2,6 +2,8 @@ from tkinter import *
 from tkinter import ttk
 from PIL import Image, ImageTk  # pillow
 import subprocess
+from tkinter import messagebox
+import mysql.connector
 
 class Face_Recognation_System:
     def exit_app(self):
@@ -84,69 +86,116 @@ class Face_Recognation_System:
         scroll_x = ttk.Scrollbar(table_frame, orient=HORIZONTAL)
         scroll_y = ttk.Scrollbar(table_frame, orient=VERTICAL)
 
-        student_table = ttk.Treeview(table_frame,
-                                    columns=("id","name","dep","course","year","sem",
-                                            "section","gender","blood","nationality",
-                                            "email","phone","address","teacher","photo"),
-                                    xscrollcommand=scroll_x.set,
-                                    yscrollcommand=scroll_y.set)
+        self.student_table = ttk.Treeview(table_frame,
+            columns=("id","name","dep","course","year","sem",
+                    "section","gender","blood","nationality",
+                    "email","phone","address","teacher","photo"),
+            xscrollcommand=scroll_x.set,
+            yscrollcommand=scroll_y.set)
 
         scroll_x.pack(side=BOTTOM, fill=X)
         scroll_y.pack(side=RIGHT, fill=Y)
 
-        scroll_x.config(command=student_table.xview)
-        scroll_y.config(command=student_table.yview)
+        scroll_x.config(command=self.student_table.xview)
+        scroll_y.config(command=self.student_table.yview)
 
         # ===== Heading =====
-        student_table.heading("id", text="Student ID")
-        student_table.heading("name", text="Student Name")
-        student_table.heading("dep", text="Department")
-        student_table.heading("course", text="Course")
-        student_table.heading("year", text="Year")
-        student_table.heading("sem", text="Semester")
-        student_table.heading("section", text="Class Section")
-        student_table.heading("gender", text="Gender")
-        student_table.heading("blood", text="Blood Group")
-        student_table.heading("nationality", text="Nationality")
-        student_table.heading("email", text="Email")
-        student_table.heading("phone", text="Phone No")
-        student_table.heading("address", text="Address")
-        student_table.heading("teacher", text="Teacher Name")
-        student_table.heading("photo", text="Photo Sample")
+        self.student_table.heading("id", text="Student ID")
+        self.student_table.heading("name", text="Student Name")
+        self.student_table.heading("dep", text="Department")
+        self.student_table.heading("course", text="Course")
+        self.student_table.heading("year", text="Year")
+        self.student_table.heading("sem", text="Semester")
+        self.student_table.heading("section", text="Class Section")
+        self.student_table.heading("gender", text="Gender")
+        self.student_table.heading("blood", text="Blood Group")
+        self.student_table.heading("nationality", text="Nationality")
+        self.student_table.heading("email", text="Email")
+        self.student_table.heading("phone", text="Phone No")
+        self.student_table.heading("address", text="Address")
+        self.student_table.heading("teacher", text="Teacher Name")
+        self.student_table.heading("photo", text="Photo Sample")
 
-        student_table["show"] = "headings"
+        self.student_table["show"] = "headings"
 
         # ===== Column Widths =====
-        student_table.column("id", width=100)
-        student_table.column("name", width=120)
-        student_table.column("dep", width=100)
-        student_table.column("course", width=100)
-        student_table.column("year", width=80)
-        student_table.column("sem", width=100)
-        student_table.column("section", width=100)
-        student_table.column("gender", width=80)
-        student_table.column("blood", width=80)
-        student_table.column("nationality", width=100)
-        student_table.column("email", width=150)
-        student_table.column("phone", width=100)
-        student_table.column("address", width=150)
-        student_table.column("teacher", width=120)
-        student_table.column("photo", width=100)
+        self.student_table.column("id", width=100)
+        self.student_table.column("name", width=120)
+        self.student_table.column("dep", width=100)
+        self.student_table.column("course", width=100)
+        self.student_table.column("year", width=80)
+        self.student_table.column("sem", width=100)
+        self.student_table.column("section", width=100)
+        self.student_table.column("gender", width=80)
+        self.student_table.column("blood", width=80)
+        self.student_table.column("nationality", width=100)
+        self.student_table.column("email", width=150)
+        self.student_table.column("phone", width=100)
+        self.student_table.column("address", width=150)
+        self.student_table.column("teacher", width=120)
+        self.student_table.column("photo", width=100)
 
-        student_table.pack(fill=BOTH, expand=1)
+        self.student_table.pack(fill=BOTH, expand=1)
+
+        # data show call
+        self.fetch_data()
+
+
+
+
+
+        # data show in table
+
+    def fetch_data(self):
+        try:
+            conn = mysql.connector.connect(
+                host="localhost",
+                user="root",
+                password="",      # DB password
+                database="face_recognation"   # এখানে আসল ডেটাবেস নাম দিন
+            )
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM face_recognizer")  # এখানে আপনার টেবিলের নাম দিন
+            rows = cursor.fetchall()
+            if len(rows) != 0:
+                self.student_table.delete(*self.student_table.get_children())  # পুরানো ডাটা ক্লিয়ার
+                for row in rows:
+                    self.student_table.insert('', END, values=row)
+            conn.close()
+        except mysql.connector.Error as err:
+            messagebox.showerror("Database Error", f"Error: {err}", parent=self.root)
+
+
+        
 
 
         # ==================== Back Button ====================
         back_btn = Button(self.root,
-                          text="←",                      
-                          width=5,
-                          height=1,
-                          cursor="hand2",
-                          bg="#e74c3c",
-                          fg="white",
-                          font=("Segoe UI Symbol", 14, "bold"),
-                          command=self.back_to_details)
+                  text="←",                      
+                  width=3,
+                  height=1,
+                  cursor="hand2",
+                  bg="#373773",   # Default transparent look
+                  fg="white",
+                  font=("Segoe UI Symbol", 11, "bold"),
+                  command=self.back_to_details)
         back_btn.place(x=10, y=110)
+
+        # Hover functions
+        def on_enter(e):
+            back_btn["bg"] = "#e74c3c"
+            back_btn["fg"] = "white"
+
+        def on_leave(e):
+            back_btn["bg"] = "#373773"
+            back_btn["fg"] = "white"
+
+        # Bind hover
+        back_btn.bind("<Enter>", on_enter)
+        back_btn.bind("<Leave>", on_leave)
+
+
+   
 
     def back_to_details(self):
         self.root.destroy()
