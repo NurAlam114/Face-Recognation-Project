@@ -28,7 +28,7 @@ class Student_Details:
         self.var_blood = StringVar()
         self.var_nationality = StringVar()
         self.var_teacher = StringVar()
-        self.var_radio1 = StringVar(value="No")  # default
+        self.var_radio1 = StringVar(value="")  # default
 
         
         self.selected_from_store = False
@@ -55,7 +55,10 @@ class Student_Details:
                 self.var_address.set(student.get("address", ""))
                 self.var_teacher.set(student.get("teacher", ""))
                 self.var_radio1.set(student.get("photo", "No"))
-                # mark: আমরা স্টোর থেকে এসেছি
+
+                self.original_id = self.var_std_id.get()
+
+            # come to store
                 self.selected_from_store = True
             except Exception as e:
                 messagebox.showerror("File Error", f"temp.json read failed:\n{e}", parent=self.root)
@@ -128,8 +131,9 @@ class Student_Details:
                                 font=("times new roman", 12, "bold"), bg="white")
         studentId_label.grid(row=0, column=0, padx=(10, 30), pady=5, sticky=W)
 
-        studentId_entry = Entry(student_details_frame, width=20, textvariable=self.var_std_id,
-                                font=("times new roman", 12, "bold"))
+        studentId_entry = Entry(student_details_frame, width=20,
+                        textvariable=self.var_std_id,
+                        font=("times new roman", 12, "bold"))
         studentId_entry.grid(row=0, column=1, padx=(10, 40), pady=5, sticky=W)
 
         # Class Section
@@ -231,21 +235,13 @@ class Student_Details:
 
         radiobtn1 = ttk.Radiobutton(student_details_frame, text='Take Photo Sample',
                                     value="Yes", variable=self.var_radio1, style="Bold.TRadiobutton")
-        radiobtn1.grid(row=1, column=4, padx=1, pady=5, sticky=W)
+        radiobtn1.grid(row=2, column=4, padx=1, pady=5, sticky=W)
 
         radiobtn2 = ttk.Radiobutton(student_details_frame, text='No Photo Sample',
                                     value="No", variable=self.var_radio1, style="Bold.TRadiobutton")
-        radiobtn2.grid(row=2, column=4, padx=1, pady=5, sticky=W)
+        radiobtn2.grid(row=3, column=4, padx=1, pady=5, sticky=W)
 
-        # Stored Data Button (optional shortcut)
-        def open_store_data():
-            self.open_store_for_update()
-
-        stored_btn = Button(student_details_frame, text="Stored Data", width=15,
-                            bg="#28a745", fg="white",
-                            font=("times new roman", 10, "bold"),
-                            command=open_store_data)
-        stored_btn.grid(row=3, column=4, padx=5, pady=10, sticky=W)
+        
 
         # Buttons frame 1
         inner_frame_1 = LabelFrame(student_details_frame, bd=3, relief=RIDGE,
@@ -269,12 +265,38 @@ class Student_Details:
                               font=('times new roman', 13, 'bold'),
                               bg='#9E9E9E', fg='white', command=self.reset_form)
         reset_button.grid(row=0, column=2, pady=5, padx=27.5)
+        def reset_form(self):
+            self.var_dep.set("")
+            self.var_course.set("")
+            self.var_year.set("")
+            self.var_semester.set("")
+            self.var_std_id.set("")
+            self.var_std_name.set("")
+            self.var_sec.set("")
+            self.var_gender.set("")
+            self.var_email.set("")
+            self.var_phone.set("")
+            self.var_address.set("")
+            self.var_blood.set("")
+            self.var_nationality.set("")
+            self.var_teacher.set("")
+            self.var_radio1.set("")   # ✅ এখন কোনো রেডিওবাটন সিলেক্ট থাকবে না
+            # flow reset
+            self.selected_from_store = False
 
-        # Delete button (placeholder – implement if needed)
-        delete_button = Button(inner_frame_1, text='Delete', width=15,
-                               font=('times new roman', 13, 'bold'),
-                               bg="#BF2E24", fg='white')
-        delete_button.grid(row=0, column=3, pady=5, padx=27.5)
+
+
+        # Stored Data Button (optional shortcut)
+        def open_store_data():
+            self.open_store_for_update()
+
+        stored_btn = Button(inner_frame_1, text="View Stored Data", width=15,
+                            bg="#28a745", fg="white",
+                            font=("times new roman", 13, "bold"),
+                            command=open_store_data)
+        stored_btn.grid(row=0, column=3, padx=27.5, pady=5)
+
+
 
         # Buttons frame 2
         inner_frame_2 = LabelFrame(student_details_frame, bd=3, relief=RIDGE,
@@ -424,27 +446,51 @@ class Student_Details:
 
     # =============== UPDATE ===============
     def update_data(self):
-        if self.var_std_id.get() == "":
-            messagebox.showerror("Error", "Student ID is required", parent=self.root)
-            return
+        # new ID (what user typed now)
+        new_id = str(self.var_std_id.get()).strip()
+        if not new_id:
+            messagebox.showerror("Error", "Student ID is required", parent=self.root); return
 
-        try:
-            year_val = int(self.var_year.get()) if self.var_year.get() else None
-        except ValueError:
-            messagebox.showerror("Error", "Year must be a number", parent=self.root); return
-        try:
-            phone_val = int(self.var_phone.get()) if self.var_phone.get() else None
-        except ValueError:
-            messagebox.showerror("Error", "Phone must be a number", parent=self.root); return
+        # original ID (what came from temp.json initially)
+        original_id = getattr(self, "original_id", "").strip() or new_id
+
+        # helper: cast optional ints
+        def to_int_or_none(x):
+            x = str(x).strip()
+            if x == "": return None
+            try: return int(x)
+            except ValueError: return None
+
+        year_val  = to_int_or_none(self.var_year.get())
+        phone_val = to_int_or_none(self.var_phone.get())
 
         try:
             conn = mysql.connector.connect(
                 host="localhost", user="root", password="", database="face_recognation",
             )
             cursor = conn.cursor()
+
+            # 1) original row exists?
+            cursor.execute("SELECT COUNT(*) FROM face_recognizer WHERE Student_ID=%s", (original_id,))
+            if cursor.fetchone()[0] == 0:
+                messagebox.showwarning("Not Found", f"No record found for Student ID: {original_id}", parent=self.root)
+                return
+
+            # 2) if user changed ID, ensure new_id not used by another row
+            if new_id != original_id:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM face_recognizer WHERE Student_ID=%s AND Student_ID<>%s",
+                    (new_id, original_id)
+                )
+                if cursor.fetchone()[0] > 0:
+                    messagebox.showerror("Duplicate ID", f"Student ID {new_id} already exists.", parent=self.root)
+                    return
+
+            # 3) perform update (notice: Student_ID is also being updated)
             cursor.execute(
                 """
                 UPDATE face_recognizer SET
+                    Student_ID=%s,
                     Student_Name=%s,
                     Department=%s,
                     Course=%s,
@@ -462,24 +508,31 @@ class Student_Details:
                 WHERE Student_ID=%s
                 """,
                 (
+                    new_id,
                     self.var_std_name.get(), self.var_dep.get(), self.var_course.get(),
                     year_val, self.var_semester.get(), self.var_sec.get(), self.var_gender.get(),
                     self.var_blood.get(), self.var_nationality.get(), self.var_email.get(),
                     phone_val, self.var_address.get(), self.var_teacher.get(), self.var_radio1.get(),
-                    self.var_std_id.get(),
+                    original_id,  # WHERE uses original id
                 ),
             )
             conn.commit()
 
             if cursor.rowcount == 0:
-                messagebox.showwarning("Not Found", "No record found for this Student ID.", parent=self.root)
+                messagebox.showinfo("No Change", "Record exists but no changes were made.", parent=self.root)
             else:
-                messagebox.showinfo("Success", "Student details updated successfully", parent=self.root)
+                # update local original_id to the new one (so next updates work)
+                self.original_id = new_id
+                messagebox.showinfo("Success", "Student details updated successfully.", parent=self.root)
+
         except mysql.connector.Error as err:
             messagebox.showerror("Database Error", f"Error: {err}", parent=self.root)
         finally:
             try: conn.close()
             except: pass
+
+
+
 
 
 # ==================== Run Main Application ====================
