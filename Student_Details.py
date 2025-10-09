@@ -545,8 +545,7 @@ class Student_Details:
 
 
 
-
-    # Take photo sample button function
+    # Take photo sample button finction
     def generate_dataset(self):
         if self.var_dep.get() == "Select Department" or self.var_std_name.get() == "" or self.var_std_id.get() == "":
             messagebox.showerror("Error", "All Fields are required", parent=self.root)
@@ -567,7 +566,7 @@ class Student_Details:
             )
             my_cursor = conn.cursor()
             my_cursor.execute("select * from face_recognizer")
-            _ = my_cursor.fetchall()  # kept as in your code
+            _ = my_cursor.fetchall()
 
             my_cursor.execute(
                 """
@@ -612,8 +611,7 @@ class Student_Details:
             self.reset_form()
             conn.close()
 
-            # ====== Face detectors (Frontal + Profile) ======
-            # Try local files first, then fallback to OpenCV's built-in path
+            # ====== Face detectors ======
             face_cascade_path = "haarcascade_frontalface_default.xml"
             profile_cascade_path = "haarcascade_profileface.xml"
             if not os.path.exists(face_cascade_path):
@@ -627,7 +625,7 @@ class Student_Details:
                 messagebox.showerror("Error", "Cascade files not found!", parent=self.root)
                 return
 
-            # ====== Voice guidance setup (non-blocking) ======
+            # ====== Voice guidance ======
             def speak_async(text):
                 def run_voice():
                     try:
@@ -638,20 +636,30 @@ class Student_Details:
                         pass
                 threading.Thread(target=run_voice, daemon=True).start()
 
-            # ====== Helper: pick best (largest) face ======
+            # ====== Helper: pick best face (Frontal + Left + Right) ======
             def face_cropped_best(img):
                 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 faces_f = face_classifier.detectMultiScale(gray, 1.2, 6, minSize=(80, 80))
                 faces_p = profile_cascade.detectMultiScale(gray, 1.2, 6, minSize=(80, 80))
-                candidates = []
-                for (x, y, w, h) in list(faces_f) + list(faces_p):
-                    margin = int(max(w, h) * 0.25)
-                    x1, y1 = max(0, x - margin), max(0, y - margin)
-                    x2, y2 = min(img.shape[1], x + w + margin), min(img.shape[0], y + h + margin)
-                    candidates.append((x1, y1, x2, y2, w * h))
+
+                # Left profile detection by flipping
+                gray_flipped = cv2.flip(gray, 1)
+                faces_p_flipped = profile_cascade.detectMultiScale(gray_flipped, 1.2, 6, minSize=(80, 80))
+                faces_p_flipped_corrected = []
+                for (x, y, w, h) in faces_p_flipped:
+                    x_corrected = gray.shape[1] - x - w
+                    faces_p_flipped_corrected.append((x_corrected, y, w, h))
+
+                candidates = list(faces_f) + list(faces_p) + faces_p_flipped_corrected
                 if not candidates:
                     return None, None
-                x1, y1, x2, y2, _ = sorted(candidates, key=lambda t: t[4], reverse=True)[0]
+
+                x1, y1, x2, y2, _ = sorted(
+                    [(x, y, x + w, y + h, w * h) for (x, y, w, h) in candidates],
+                    key=lambda t: t[4],
+                    reverse=True
+                )[0]
+
                 crop = img[y1:y2, x1:x2]
                 return crop, (x1, y1, x2, y2)
 
@@ -660,7 +668,6 @@ class Student_Details:
             if not cap.isOpened():
                 messagebox.showerror("Error", "Camera not accessible!", parent=self.root)
                 return
-
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
@@ -674,7 +681,6 @@ class Student_Details:
                 parent=self.root
             )
 
-            # ====== Instructions (pose flow) ======
             instructions = [
                 ("Look Straight", "Straight"),
                 ("Turn Left", "Left"),
@@ -684,10 +690,9 @@ class Student_Details:
             instruction_index = 0
             photos_per_pose = 25
             per_pose_count = 0
-            pose_switch_grace_s = 1.5  # small grace so user can move to new pose
+            pose_switch_grace_s = 1.5
             pose_ready_at = time.time() + pose_switch_grace_s
 
-            # Voice start
             speak_async("Camera is on. Please follow my instructions.")
             speak_async(instructions[instruction_index][0])
 
@@ -697,10 +702,8 @@ class Student_Details:
                 if not ret:
                     break
 
-                # Current instruction text
                 current_instruction = instructions[instruction_index][0]
 
-                # UI overlay
                 cv2.putText(frame, f"Instruction: {current_instruction}", (20, 40),
                             cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
                 cv2.putText(frame, f"Pose {instruction_index+1}/{len(instructions)}  Photo {per_pose_count}/{photos_per_pose}", (20, 80),
@@ -708,7 +711,6 @@ class Student_Details:
 
                 face, box = face_cropped_best(frame)
 
-                # Save only after grace time so user can finish turning
                 if face is not None and face.size > 0 and time.time() >= pose_ready_at:
                     img_id += 1
                     per_pose_count += 1
@@ -718,14 +720,12 @@ class Student_Details:
                     file_name_path = os.path.join(save_dir, f"user.{sid}.{img_id}.jpg")
                     cv2.imwrite(file_name_path, face_gray)
 
-                    # Draw box & counters
                     if box:
                         x1, y1, x2, y2 = box
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     cv2.putText(frame, f"Saved: {img_id}", (20, 120),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
 
-                    # Pose completed?
                     if per_pose_count >= photos_per_pose:
                         instruction_index += 1
                         if instruction_index < len(instructions):
@@ -733,16 +733,13 @@ class Student_Details:
                             pose_ready_at = time.time() + pose_switch_grace_s
                             speak_async(instructions[instruction_index][0])
                         else:
-                            # All poses done
                             break
 
-                # Show preview & handle key
                 cv2.imshow("Camera Preview", frame)
-                key = cv2.waitKey(150) & 0xFF  # ~25 FPS
-                if key == 13 or key == ord('q'):  # Enter or q to quit early
+                key = cv2.waitKey(150) & 0xFF
+                if key == 13 or key == ord('q'):
                     break
 
-            # ====== Cleanup ======
             cap.release()
             cv2.destroyAllWindows()
             speak_async("Dataset generation completed.")
