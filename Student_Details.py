@@ -283,7 +283,7 @@ class Student_Details:
             self.var_blood.set("")
             self.var_nationality.set("")
             self.var_teacher.set("")
-            self.var_radio1.set("")  
+            self.var_radio1.set("")   # ✅ এখন কোনো রেডিওবাটন সিলেক্ট থাকবে না
             # flow reset
             self.selected_from_store = False
 
