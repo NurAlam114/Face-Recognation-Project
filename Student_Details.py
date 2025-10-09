@@ -5,6 +5,9 @@ from tkinter import messagebox
 import subprocess
 import mysql.connector
 import os, sys, json
+import cv2
+import time
+
 
 
 class Student_Details:
@@ -77,12 +80,12 @@ class Student_Details:
         bg_image.place(x=3, y=0, width=1530, height=790)
 
         # ==================== Title Label ====================
-        title_lbl = Label(bg_image, text="STUDENT MANAGEMENT SYSTEM",
-                          font=('times new roman', 40, "bold"), bg='white', fg='darkgreen')
+        title_lbl = Label(bg_image, text="STUDENT INFO HUB",
+                          font=('Algerian', 60, "bold"), bg='white', fg='darkgreen')
         title_lbl.place(x=-130, y=0, width=1800, height=100)
 
         #  Student details LabelFrame
-        main_frame = LabelFrame(bg_image, bd=10, relief=RIDGE, text="Stdent Details", font=('times new roman', 12, 'bold'))
+        main_frame = LabelFrame(bg_image, bd=10, relief=RIDGE, text="Student Details", font=('times new roman', 12, 'bold'))
         main_frame.place(x=255, y=170, width=1000, height=550)
 
         # Current course LabelFrame
@@ -280,13 +283,13 @@ class Student_Details:
             self.var_blood.set("")
             self.var_nationality.set("")
             self.var_teacher.set("")
-            self.var_radio1.set("")   # ✅ এখন কোনো রেডিওবাটন সিলেক্ট থাকবে না
+            self.var_radio1.set("")  
             # flow reset
             self.selected_from_store = False
 
 
 
-        # Stored Data Button (optional shortcut)
+        # View Stored Data Button
         def open_store_data():
             self.open_store_for_update()
 
@@ -303,10 +306,14 @@ class Student_Details:
                                    font=('times new roman', 12, 'bold'))
         inner_frame_2.place(x=10, y=240, width=870, height=48)
 
-        take_photo_sample_button = Button(inner_frame_2, text='Take Photo Sample', width=30,
+
+        # Take photo sample button
+        take_photo_sample_button = Button(inner_frame_2, command=self.generate_dataset, text='Take Photo Sample', width=30,
                                           font=('times new roman', 13, 'bold'), bg='#4CAF50', fg='white')
         take_photo_sample_button.grid(row=0, column=1, pady=5, padx=63)
 
+
+        # Update photo sample button
         update_photo_sample_button = Button(inner_frame_2, text='Update Photo Sample', width=30,
                                             font=('times new roman', 13, 'bold'), bg='#2196F3', fg='white')
         update_photo_sample_button.grid(row=0, column=2, pady=5, padx=63)
@@ -337,7 +344,6 @@ class Student_Details:
         """
         if self.selected_from_store:
             self.update_data()  # save to DB
-            # Optional: reset flag so next time it goes to select again
             # self.selected_from_store = False
         else:
             self.open_store_for_update()
@@ -513,7 +519,7 @@ class Student_Details:
                     year_val, self.var_semester.get(), self.var_sec.get(), self.var_gender.get(),
                     self.var_blood.get(), self.var_nationality.get(), self.var_email.get(),
                     phone_val, self.var_address.get(), self.var_teacher.get(), self.var_radio1.get(),
-                    original_id,  # WHERE uses original id
+                    original_id,  
                 ),
             )
             conn.commit()
@@ -530,6 +536,443 @@ class Student_Details:
         finally:
             try: conn.close()
             except: pass
+
+
+
+
+
+
+
+
+
+
+    # Take photo sample button function
+    def generate_dataset(self):
+        if self.var_dep.get() == "Select Department" or self.var_std_name.get() == "" or self.var_std_id.get() == "":
+            messagebox.showerror("Error", "All Fields are required", parent=self.root)
+            return
+        try:
+            sid = str(self.var_std_id.get())
+            import mysql.connector
+            import pyttsx3
+            import threading
+            import time, os, cv2
+
+            # ========== DB Update ==========
+            conn = mysql.connector.connect(
+                host="localhost",
+                user="root",
+                password="",
+                database="face_recognation"
+            )
+            my_cursor = conn.cursor()
+            my_cursor.execute("select * from face_recognizer")
+            _ = my_cursor.fetchall()  # kept as in your code
+
+            my_cursor.execute(
+                """
+                UPDATE face_recognizer SET
+                    Student_ID=%s,
+                    Student_Name=%s,
+                    Department=%s,
+                    Course=%s,
+                    Year=%s,
+                    Semester=%s,
+                    Class_Section=%s,
+                    Gender=%s,
+                    Blood_Group=%s,
+                    Nationality=%s,
+                    Email=%s,
+                    Phone_No=%s,
+                    Address=%s,
+                    Teacher_Name=%s,
+                    Photo_Sample=%s
+                WHERE Student_ID=%s
+                """,
+                (
+                    sid,
+                    self.var_std_name.get(),
+                    self.var_dep.get(),
+                    self.var_course.get(),
+                    self.var_year.get(),
+                    self.var_semester.get(),
+                    self.var_sec.get(),
+                    self.var_gender.get(),
+                    self.var_blood.get(),
+                    self.var_nationality.get(),
+                    self.var_email.get(),
+                    self.var_phone.get(),
+                    self.var_address.get(),
+                    self.var_teacher.get(),
+                    self.var_radio1.get(),
+                    sid,
+                )
+            )
+            conn.commit()
+            self.reset_form()
+            conn.close()
+
+            # ====== Face detectors (Frontal + Profile) ======
+            # Try local files first, then fallback to OpenCV's built-in path
+            face_cascade_path = "haarcascade_frontalface_default.xml"
+            profile_cascade_path = "haarcascade_profileface.xml"
+            if not os.path.exists(face_cascade_path):
+                face_cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+            if not os.path.exists(profile_cascade_path):
+                profile_cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_profileface.xml")
+
+            face_classifier = cv2.CascadeClassifier(face_cascade_path)
+            profile_cascade = cv2.CascadeClassifier(profile_cascade_path)
+            if face_classifier.empty() or profile_cascade.empty():
+                messagebox.showerror("Error", "Cascade files not found!", parent=self.root)
+                return
+
+            # ====== Voice guidance setup (non-blocking) ======
+            def speak_async(text):
+                def run_voice():
+                    try:
+                        engine = pyttsx3.init()
+                        engine.say(text)
+                        engine.runAndWait()
+                    except Exception:
+                        pass
+                threading.Thread(target=run_voice, daemon=True).start()
+
+            # ====== Helper: pick best (largest) face ======
+            def face_cropped_best(img):
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                faces_f = face_classifier.detectMultiScale(gray, 1.2, 6, minSize=(80, 80))
+                faces_p = profile_cascade.detectMultiScale(gray, 1.2, 6, minSize=(80, 80))
+                candidates = []
+                for (x, y, w, h) in list(faces_f) + list(faces_p):
+                    margin = int(max(w, h) * 0.25)
+                    x1, y1 = max(0, x - margin), max(0, y - margin)
+                    x2, y2 = min(img.shape[1], x + w + margin), min(img.shape[0], y + h + margin)
+                    candidates.append((x1, y1, x2, y2, w * h))
+                if not candidates:
+                    return None, None
+                x1, y1, x2, y2, _ = sorted(candidates, key=lambda t: t[4], reverse=True)[0]
+                crop = img[y1:y2, x1:x2]
+                return crop, (x1, y1, x2, y2)
+
+            # ====== Camera init ======
+            cap = cv2.VideoCapture(0)
+            if not cap.isOpened():
+                messagebox.showerror("Error", "Camera not accessible!", parent=self.root)
+                return
+
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+            img_id = 0
+            save_dir = "Sample image data"
+            os.makedirs(save_dir, exist_ok=True)
+
+            messagebox.showinfo(
+                "Info",
+                "Camera is ON.\nFollow the instructions.\nPress Enter to stop early.",
+                parent=self.root
+            )
+
+            # ====== Instructions (pose flow) ======
+            instructions = [
+                ("Look Straight", "Straight"),
+                ("Turn Left", "Left"),
+                ("Turn Right", "Right"),
+                ("Look Down", "Down"),
+            ]
+            instruction_index = 0
+            photos_per_pose = 25
+            per_pose_count = 0
+            pose_switch_grace_s = 1.5  # small grace so user can move to new pose
+            pose_ready_at = time.time() + pose_switch_grace_s
+
+            # Voice start
+            speak_async("Camera is on. Please follow my instructions.")
+            speak_async(instructions[instruction_index][0])
+
+            # ====== Capture loop ======
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                # Current instruction text
+                current_instruction = instructions[instruction_index][0]
+
+                # UI overlay
+                cv2.putText(frame, f"Instruction: {current_instruction}", (20, 40),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
+                cv2.putText(frame, f"Pose {instruction_index+1}/{len(instructions)}  Photo {per_pose_count}/{photos_per_pose}", (20, 80),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+
+                face, box = face_cropped_best(frame)
+
+                # Save only after grace time so user can finish turning
+                if face is not None and face.size > 0 and time.time() >= pose_ready_at:
+                    img_id += 1
+                    per_pose_count += 1
+
+                    face_resized = cv2.resize(face, (500, 500))
+                    face_gray = cv2.cvtColor(face_resized, cv2.COLOR_BGR2GRAY)
+                    file_name_path = os.path.join(save_dir, f"user.{sid}.{img_id}.jpg")
+                    cv2.imwrite(file_name_path, face_gray)
+
+                    # Draw box & counters
+                    if box:
+                        x1, y1, x2, y2 = box
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame, f"Saved: {img_id}", (20, 120),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+
+                    # Pose completed?
+                    if per_pose_count >= photos_per_pose:
+                        instruction_index += 1
+                        if instruction_index < len(instructions):
+                            per_pose_count = 0
+                            pose_ready_at = time.time() + pose_switch_grace_s
+                            speak_async(instructions[instruction_index][0])
+                        else:
+                            # All poses done
+                            break
+
+                # Show preview & handle key
+                cv2.imshow("Camera Preview", frame)
+                key = cv2.waitKey(150) & 0xFF  # ~25 FPS
+                if key == 13 or key == ord('q'):  # Enter or q to quit early
+                    break
+
+            # ====== Cleanup ======
+            cap.release()
+            cv2.destroyAllWindows()
+            speak_async("Dataset generation completed.")
+            messagebox.showinfo("Result", f"Generating data sets completed!\nSaved: {img_id} samples", parent=self.root)
+
+        except Exception as es:
+            messagebox.showerror("Error", f"Due To: {str(es)}", parent=self.root)
+
+
+      
+
+
+    # def generate_dataset(self):
+    #     # --------- Basic form validation ----------
+    #     if (self.var_dep.get() == "Select Department" or
+    #         self.var_std_name.get() == "" or
+    #         self.var_std_id.get() == ""):
+    #         messagebox.showerror("Error", "All Fields are required", parent=self.root)
+    #         return
+
+    #     # --------- DB UPDATE ----------
+    #     try:
+    #         sid = str(self.var_std_id.get())
+    #         conn = mysql.connector.connect(
+    #             host="localhost",
+    #             user="root",
+    #             password="",
+    #             database="face_recognation"
+    #         )
+    #         cur = conn.cursor()
+    #         cur.execute("""
+    #             UPDATE face_recognizer SET
+    #                 Student_ID=%s,
+    #                 Student_Name=%s,
+    #                 Department=%s,
+    #                 Course=%s,
+    #                 Year=%s,
+    #                 Semester=%s,
+    #                 Class_Section=%s,
+    #                 Gender=%s,
+    #                 Blood_Group=%s,
+    #                 Nationality=%s,
+    #                 Email=%s,
+    #                 Phone_No=%s,
+    #                 Address=%s,
+    #                 Teacher_Name=%s,
+    #                 Photo_Sample=%s
+    #             WHERE Student_ID=%s
+    #         """, (
+    #             sid,
+    #             self.var_std_name.get(),
+    #             self.var_dep.get(),
+    #             self.var_course.get(),
+    #             self.var_year.get(),
+    #             self.var_semester.get(),
+    #             self.var_sec.get(),
+    #             self.var_gender.get(),
+    #             self.var_blood.get(),
+    #             self.var_nationality.get(),
+    #             self.var_email.get(),
+    #             self.var_phone.get(),
+    #             self.var_address.get(),
+    #             self.var_teacher.get(),
+    #             self.var_radio1.get(),
+    #             sid
+    #         ))
+    #         conn.commit()
+    #         try: cur.close(); conn.close()
+    #         except Exception: pass
+    #         # self.fetch_data()  # থাকলে আনকমেন্ট করো
+    #         self.reset_form()
+    #     except Exception as es:
+    #         messagebox.showerror("Error", f"DB Error: {str(es)}", parent=self.root)
+    #         return
+
+    #     # --------- Capture config ----------
+    #     import os, time
+    #     os.makedirs("sample_image_data", exist_ok=True)
+
+    #     face_frontal = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+    #     face_profile = cv2.CascadeClassifier("haarcascade_profileface.xml")  # left-profile ধরে
+    #     # ডান-প্রোফাইল ধরতে আমরা ফ্রেম flip করে একই cascade চালাবো
+
+    #     TARGET_SAMPLES = 100
+    #     REQUIRED_STABLE = 2        # টানা 2 ফ্রেম ভালো হলে সেভ
+    #     BLUR_THRESH = 15.0         # কম রাখলে লো-কোয়ালিটি ক্যামেরায়ও পাস করবে
+    #     MARGIN_PX = 50             # wide crop
+    #     PATIENCE_NOFACE = 300      # এতগুলো ফ্রেম ফেস না পেলে hint দেখালেও লুপ চালু থাকবে
+    #     MAX_RUNTIME_SEC = 300      # সেফটি: ৫ মিনিট পর ব্রেক
+
+    #     def detect_all_faces(bgr):
+    #         """frontal + left-profile + right-profile (flip trick)"""
+    #         gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    #         faces_f = face_frontal.detectMultiScale(gray, 1.2, 5)
+
+    #         faces_p_left = face_profile.detectMultiScale(gray, 1.2, 5)
+
+    #         # right-profile: flip horizontally, detect, then map back
+    #         flipped = cv2.flip(gray, 1)
+    #         faces_p_right_flipped = face_profile.detectMultiScale(flipped, 1.2, 5)
+    #         faces_p_right = []
+    #         W = gray.shape[1]
+    #         for (x, y, w, h) in faces_p_right_flipped:
+    #             # flip map: x' = W - (x + w)
+    #             faces_p_right.append((W - (x + w), y, w, h))
+
+    #         all_faces = list(faces_f) + list(faces_p_left) + list(faces_p_right)
+    #         return all_faces
+
+    #     def best_face_box(bgr):
+    #         """একাধিক থাকলে সবচেয়ে বড় বক্সটি নাও"""
+    #         boxes = detect_all_faces(bgr)
+    #         if not boxes:
+    #             return None
+    #         # area অনুযায়ী সবচেয়ে বড়টা
+    #         boxes.sort(key=lambda r: r[2]*r[3], reverse=True)
+    #         return boxes[0]
+
+    #     def crop_with_margin(bgr, box, margin=MARGIN_PX):
+    #         x, y, w, h = box
+    #         H, W = bgr.shape[:2]
+    #         x1 = max(0, x - margin)
+    #         y1 = max(0, y - margin)
+    #         x2 = min(W, x + w + margin)
+    #         y2 = min(H, y + h + margin)
+    #         crop = bgr[y1:y2, x1:x2]
+    #         return crop if crop.size else None
+
+    #     # --------- Camera open ----------
+    #     cap = cv2.VideoCapture(0)
+    #     # low webcam fix: resolution & fps সেট করো (সব ক্যামে নাও কাজ করতে পারে)
+    #     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
+    #     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    #     cap.set(cv2.CAP_PROP_FPS,          30)
+    #     # কিছু প্ল্যাটফর্মে অটো এক্সপোজার/ফোকাস সেটগুলো no-op হতে পারে:
+    #     cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)  # চেষ্টা; OS ভেদে ভিন্ন
+    #     cap.set(cv2.CAP_PROP_AUTOFOCUS,     1)
+
+    #     if not cap.isOpened():
+    #         messagebox.showerror("Error", "Camera not found / cannot open", parent=self.root)
+    #         return
+
+    #     img_id = 0
+    #     stable = 0
+    #     noface_frames = 0
+    #     t0 = time.time()
+
+    #     try:
+    #         while True:
+    #             ok, frame = cap.read()
+    #             if not ok:
+    #                 if cv2.waitKey(1) & 0xFF == 27: break
+    #                 continue
+
+    #             # light/denoise (লো-কোয়ালিটি ফ্রেম smooth করতে)
+    #             frame = cv2.bilateralFilter(frame, d=5, sigmaColor=25, sigmaSpace=25)
+
+    #             box = best_face_box(frame)
+    #             if box is None:
+    #                 noface_frames += 1
+    #                 stable = 0
+    #                 cv2.putText(frame, "Show your face (front/side)", (20, 40),
+    #                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+    #                 cv2.imshow("Capture", frame)
+    #             else:
+    #                 noface_frames = 0
+    #                 crop = crop_with_margin(frame, box, margin=MARGIN_PX)
+    #                 if crop is None or crop.size == 0:
+    #                     stable = 0
+    #                     cv2.putText(frame, "Adjust position...", (20, 40),
+    #                                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+    #                     cv2.imshow("Capture", frame)
+    #                 else:
+    #                     # Sharpness check (লো threshold)
+    #                     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    #                     blur_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    #                     if blur_var >= BLUR_THRESH:
+    #                         stable += 1
+    #                     else:
+    #                         stable = 0
+
+    #                     # ডায়াগনস্টিক টেক্সট
+    #                     x, y, w, h = box
+    #                     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+    #                     cv2.putText(frame, f"Sharp:{blur_var:.1f}  Stable:{stable}/{REQUIRED_STABLE}", (20, 70),
+    #                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+    #                     if stable >= REQUIRED_STABLE:
+    #                         img_id += 1
+    #                         stable = 0
+    #                         face = cv2.resize(gray, (500, 500))
+    #                         save_path = f"sample_image_data/user.{sid}.{img_id}.jpg"
+    #                         cv2.imwrite(save_path, face)
+
+    #                         cv2.putText(face, f"{img_id}", (20, 40),
+    #                                     cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
+    #                         cv2.imshow("Capture", face)
+    #                     else:
+    #                         cv2.putText(frame, "Hold steady...", (20, 40),
+    #                                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+    #                         cv2.imshow("Capture", frame)
+
+    #             # স্টপ কন্ডিশন
+    #             key = cv2.waitKey(1) & 0xFF
+    #             if key == 27 or key == 13:   # ESC বা Enter
+    #                 break
+    #             if img_id >= TARGET_SAMPLES:
+    #                 break
+    #             if noface_frames >= PATIENCE_NOFACE:
+    #                 # অনেকক্ষণ ফেস না পেলে hint দিয়ে হলেও break
+    #                 cv2.putText(frame, "No face for a while. Adjust camera/lighting.", (20, 100),
+    #                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+    #                 cv2.imshow("Capture", frame)
+    #                 # সামান্য বিরতি দেখাতে:
+    #                 cv2.waitKey(800)
+    #                 break
+    #             if (time.time() - t0) > MAX_RUNTIME_SEC:
+    #                 break
+
+    #         cap.release()
+    #         cv2.destroyAllWindows()
+    #         messagebox.showinfo("Result",
+    #             f"Generating data sets completed! Saved: {img_id}/{TARGET_SAMPLES} images")
+    #     except Exception as es:
+    #         cap.release()
+    #         cv2.destroyAllWindows()
+    #         messagebox.showerror("Error", f"Capture Error: {str(es)}", parent=self.root)
+
+
+
 
 
 

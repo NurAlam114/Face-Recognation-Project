@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import ttk
 from PIL import Image, ImageTk  # pillow
 import subprocess
+import os
 
 class Face_Recognation_System:
     def exit_app(self):
@@ -24,8 +25,8 @@ class Face_Recognation_System:
 
 
         # ==================== Title Label ====================
-        title_lbl = Label(bg_image, text="FACE RECOGNATION ATTENDENCE SYSTEM",
-                          font=('times new roman', 40, "bold"), bg='white', fg='red')
+        title_lbl = Label(bg_image, text="SMART  PRESENCE",
+                          font=('Algerian', 60, "bold"), bg='white', fg='red')
         title_lbl.place(x=-130, y=0, width=1800, height=100)
 
 
@@ -87,16 +88,22 @@ class Face_Recognation_System:
         btn_help_text.place(x=1100, y=360, width=220, height=40)
 
 
-        # ==================== Train Button ====================
+        # ==================== Train Data Button ====================
+        def open_Train_Data():
+            self.root.destroy()
+            subprocess.Popen(["python", "Train_Data.py"])
+
         img_train = Image.open(r"C:\Users\Asus\OneDrive\Desktop\Acadamic\Final Project\Face Recognation\UI Image\train.png")
         img_train = img_train.resize((250, 220), Image.LANCZOS)
         self.photoimg_train = ImageTk.PhotoImage(img_train)
 
-        btn_train_img = Button(bg_image, image=self.photoimg_train, cursor='hand2')
+        btn_train_img = Button(bg_image, image=self.photoimg_train, cursor='hand2',
+                               command=open_Train_Data)
         btn_train_img.place(x=200, y=460, width=220, height=220)
 
         btn_train_text = Button(bg_image, text="Train data", cursor='hand2',
-                                font=('times new roman', 15, "bold"), bg='darkblue', fg='white')
+                                font=('times new roman', 15, "bold"), bg='darkblue', fg='white',
+                                command=open_Train_Data)
         btn_train_text.place(x=200, y=670, width=220, height=40)
 
 
@@ -105,10 +112,10 @@ class Face_Recognation_System:
         img_photos = img_photos.resize((250, 220), Image.LANCZOS)
         self.photoimg_photos = ImageTk.PhotoImage(img_photos)
 
-        btn_photos_img = Button(bg_image, image=self.photoimg_photos, cursor='hand2')
+        btn_photos_img = Button(bg_image, image=self.photoimg_photos, cursor='hand2',command=self.open_img)
         btn_photos_img.place(x=500, y=460, width=220, height=220)
 
-        btn_photos_text = Button(bg_image, text="Photos", cursor='hand2',
+        btn_photos_text = Button(bg_image, text="Photos", cursor='hand2',command=self.open_img,
                                  font=('times new roman', 15, "bold"), bg='darkblue', fg='white')
         btn_photos_text.place(x=500, y=670, width=220, height=40)
         
@@ -137,6 +144,11 @@ class Face_Recognation_System:
         btn_exit_text = Button(bg_image, text="Exit", cursor='hand2',
                                font=('times new roman', 15, "bold"), bg='darkblue', fg='white', command=self.exit_app)
         btn_exit_text.place(x=1100, y=670, width=220, height=40)
+
+    #==========Photos Button function==========
+    def open_img(self):
+        os.startfile('Sample image data')
+    
         
         
 

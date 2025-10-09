@@ -13,6 +13,25 @@ class Face_Recognation_System:
         self.root.geometry('1530x790+0+0')
         self.root.title("Face Recognation System")
 
+
+        # Variables
+        self.var_dep = StringVar()
+        self.var_course = StringVar()
+        self.var_year = StringVar()
+        self.var_semester = StringVar()
+        self.var_std_id = StringVar()
+        self.var_std_name = StringVar()
+        self.var_sec = StringVar()
+        self.var_gender = StringVar()
+        self.var_email = StringVar()
+        self.var_phone = StringVar()
+        self.var_address = StringVar()
+        self.var_blood = StringVar()
+        self.var_nationality = StringVar()
+        self.var_teacher = StringVar()
+        self.var_radio1 = StringVar()
+        self.selected_from_store = False
+
         # ==================== Background Image ====================
         img_bg = Image.open(r"C:\Users\Asus\OneDrive\Desktop\Acadamic\Final Project\Face Recognation\UI Image\background.jpg")
         img_bg = img_bg.resize((1530, 790), Image.LANCZOS)
@@ -24,27 +43,27 @@ class Face_Recognation_System:
         # ==================== Title Label ====================
         title_lbl = Label(
             bg_image,
-            text="STUDENT MANAGEMENT SYSTEM",
-            font=('times new roman', 40, "bold"),
+            text="STUDENT RECORDS",
+            font=('Algerian', 60, "bold"),
             bg='white',
-            fg='red'
+            fg='#1E3A8A'
         )
         title_lbl.place(x=-130, y=0, width=1800, height=100)
 
         #  Student details LabelFrame
         main_frame = LabelFrame(
             bg_image, bd=10, relief=RIDGE,
-            text="Student Information",
+            text="Student Directory",
             font=('times new roman', 12, 'bold')
         )
-        main_frame.place(x=255, y=170, width=1000, height=550)
+        main_frame.place(x=90, y=130, width=1350, height=650)
 
         # ==================== Search Bar ====================
         search_frame = LabelFrame(
             bg_image, bd=5, relief=RIDGE,
             text="Search", font=('times new roman', 12, 'bold')
         )
-        search_frame.place(x=300, y=210, width=900, height=70)
+        search_frame.place(x=130, y=170, width=1300, height=70)
 
         search_label = Label(
             search_frame,
@@ -144,12 +163,25 @@ class Face_Recognation_System:
         )
         delete_button.grid(row=0, column=3, padx=50, pady=5, sticky=W)
 
+         # Refresh button
+        Refresh_button = Button(search_frame, text='Refresh', width=15,
+                                font=('times new roman', 13, 'bold'),
+                                bg='#9E9E9E', fg='white', command=self.Refresh_form)
+        Refresh_button.grid(row=0, column=4, pady=5, padx=50)
+
+
+       
+        
+    
+
+
+
         # ==================== Table ====================
         table_frame = LabelFrame(
             bg_image, bd=5, relief=RIDGE,
             font=('times new roman', 12, 'bold')
         )
-        table_frame.place(x=300, y=290, width=900, height=410)
+        table_frame.place(x=130, y=255, width=1300, height=500)
 
         scroll_x = ttk.Scrollbar(table_frame, orient=HORIZONTAL)
         scroll_y = ttk.Scrollbar(table_frame, orient=VERTICAL)
@@ -207,6 +239,8 @@ class Face_Recognation_System:
 
         self.student_table.pack(fill=BOTH, expand=1)
         self.student_table.bind("<Double-1>", lambda event: self.back_to_details())
+        self.student_table.bind("<Double-1>", self.open_selected_in_details)
+
 
         # Load data initially
         self.fetch_data()
@@ -231,7 +265,7 @@ class Face_Recognation_System:
         back_btn.bind("<Enter>", on_enter)
         back_btn.bind("<Leave>", on_leave)
 
-    # ================== Fetch all data (explicit column order) ==================
+    # ================== Fetch all data ==================
     def fetch_data(self):
         try:
             conn = mysql.connector.connect(
@@ -265,7 +299,7 @@ class Face_Recognation_System:
         except mysql.connector.Error as err:
             messagebox.showerror("Database Error", f"Error: {err}", parent=self.root)
 
-    # ================== Delete selected row (confirm + DB) ==================
+    # ================== Delete function ==================
     def confirm_and_delete(self):
         sel = self.student_table.selection()
         if not sel:
@@ -314,57 +348,99 @@ class Face_Recognation_System:
         cur.close()
         conn.close()
         return rowcount > 0
+    
 
-    # ================== Open details screen with selected row ==================
-    def back_to_details(self):
-        # Try selected row first, else focused row
-        sel = self.student_table.selection()
-        item_id = sel[0] if sel else self.student_table.focus()
 
+    def open_selected_in_details(self, event=None):
+        item_id = self.student_table.identify_row(event.y) if event else None
         if not item_id:
-            messagebox.showwarning("No selection", "Please select a row first.", parent=self.root)
-            return
+            sel = self.student_table.selection()
+            if not sel:
+                messagebox.showwarning("No selection", "Please double-click a row.", parent=self.root)
+                return
+            item_id = sel[0]
 
-        values = self.student_table.item(item_id, "values") or ()
-        if len(values) < 15:
-            messagebox.showerror("Error", "Selected row is incomplete.", parent=self.root)
+        values = self.student_table.item(item_id, "values")
+        if not values or len(values) < 15:
+            messagebox.showerror("Error", "Could not read row values.", parent=self.root)
             return
-
-        # Map columns -> dict (matches SELECT order)
-        student = {
-            "id": str(values[0]),
-            "name": values[1],
-            "dept": values[2],
-            "course": values[3],
-            "year": values[4],
-            "sem": values[5],
-            "section": values[6],
-            "gender": values[7],
-            "blood": values[8],
-            "nationality": values[9],
-            "email": values[10],
-            "phone": values[11],
-            "address": values[12],
-            "teacher": values[13],
-            "photo": values[14],
-        }
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        temp_path = os.path.join(base_dir, "temp.json")
-        try:
-            with open(temp_path, "w", encoding="utf-8") as f:
-                json.dump(student, f, ensure_ascii=False)
-        except Exception as e:
-            messagebox.showerror("File Error", f"Couldn't write temp.json:\n{e}", parent=self.root)
+        details_path = os.path.join(base_dir, "Student_Details.py")
+        if not os.path.exists(details_path):
+            messagebox.showerror("Path Error", f"Student_Details.py not found:\n{details_path}", parent=self.root)
             return
 
+        student = {
+            "id":         str(values[0]),
+            "name":       values[1],
+            "dept":       values[2],
+            "course":     values[3],
+            "year":       str(values[4]),
+            "sem":        values[5],
+            "section":    values[6],
+            "gender":     values[7],
+            "blood":      values[8],
+            "nationality":values[9],
+            "email":      values[10],
+            "phone":      str(values[11]),
+            "address":    values[12],
+            "teacher":    values[13],
+            "photo":      values[14],
+        }
+
+        try:
+            temp_path = os.path.join(base_dir, "temp.json")
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(student, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            messagebox.showerror("File Error", f"Failed to write temp.json:\n{e}", parent=self.root)
+            return
+
+        try:
+            self.root.destroy()
+        finally:
+            subprocess.Popen([sys.executable, details_path])
+
+
+    # ================== back function ==================
+    def back_to_details(self):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         details_path = os.path.join(base_dir, "Student_Details.py")
+
         if not os.path.exists(details_path):
             messagebox.showerror("Path Error", f"Student_Details.py not found at:\n{details_path}", parent=self.root)
             return
 
         self.root.destroy()
         subprocess.Popen([sys.executable, details_path])
+
+
+
+        
+
+ # Refresh method – class method হিসেবে
+    def Refresh_form(self):
+        self.var_dep.set("")
+        self.var_course.set("")
+        self.var_year.set("")
+        self.var_semester.set("")
+        self.var_std_id.set("")
+        self.var_std_name.set("")
+        self.var_sec.set("")
+        self.var_gender.set("")
+        self.var_email.set("")
+        self.var_phone.set("")
+        self.var_address.set("")
+        self.var_blood.set("")
+        self.var_nationality.set("")
+        self.var_teacher.set("")
+        self.var_radio1.set("")  
+        self.selected_from_store = False
+
+    
+
+
 
 
 # ==================== Run Main Application ====================
