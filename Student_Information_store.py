@@ -3,9 +3,9 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 from tkinter import messagebox
 import subprocess
-import mysql.connector
-import os, sys, json
-
+import os, sys
+import json
+import sqlite3
 
 class Face_Recognation_System:
     def __init__(self, root):
@@ -13,8 +13,7 @@ class Face_Recognation_System:
         self.root.geometry('1530x790+0+0')
         self.root.title("Face Recognation System")
 
-
-        # Variables
+        # ==================== Variables ====================
         self.var_dep = StringVar()
         self.var_course = StringVar()
         self.var_year = StringVar()
@@ -36,7 +35,6 @@ class Face_Recognation_System:
         img_bg = Image.open(r"C:\Users\Asus\OneDrive\Desktop\Acadamic\Final Project\Face Recognation\UI Image\background.jpg")
         img_bg = img_bg.resize((1530, 790), Image.LANCZOS)
         self.photoimg_bg = ImageTk.PhotoImage(img_bg)
-
         bg_image = Label(self.root, image=self.photoimg_bg)
         bg_image.place(x=3, y=0, width=1530, height=790)
 
@@ -50,7 +48,7 @@ class Face_Recognation_System:
         )
         title_lbl.place(x=-130, y=0, width=1800, height=100)
 
-        #  Student details LabelFrame
+        # ==================== Student Details Frame ====================
         main_frame = LabelFrame(
             bg_image, bd=10, relief=RIDGE,
             text="Student Directory",
@@ -58,7 +56,7 @@ class Face_Recognation_System:
         )
         main_frame.place(x=90, y=130, width=1350, height=650)
 
-        # ==================== Search Bar ====================
+        # ==================== Search Frame ====================
         search_frame = LabelFrame(
             bg_image, bd=5, relief=RIDGE,
             text="Search", font=('times new roman', 12, 'bold')
@@ -105,33 +103,18 @@ class Face_Recognation_System:
             # Clear table first
             for i in self.student_table.get_children():
                 self.student_table.delete(i)
+
             try:
-                conn = mysql.connector.connect(
-                    host="localhost",
-                    user="root",
-                    password="",
-                    database="face_recognation"
-                )
+                conn = sqlite3.connect("face_recognation.db")
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT
-                        Student_ID,
-                        Student_Name,
-                        Department,
-                        Course,
-                        Year,
-                        Semester,
-                        Class_Section,
-                        Gender,
-                        Blood_Group,
-                        Nationality,
-                        Email,
-                        Phone_No,
-                        Address,
-                        Teacher_Name,
+                        Student_ID, Student_Name, Department, Course,
+                        Year, Semester, Class_Section, Gender, Blood_Group,
+                        Nationality, Email, Phone_No, Address, Teacher_Name,
                         Photo_Sample
                     FROM face_recognizer
-                    WHERE Student_ID = %s
+                    WHERE Student_ID = ?
                 """, (user_id,))
                 rows = cursor.fetchall()
                 if rows:
@@ -140,7 +123,7 @@ class Face_Recognation_System:
                 else:
                     messagebox.showinfo("Search Result", f"No result for ID: {user_id}", parent=self.root)
                 conn.close()
-            except mysql.connector.Error as err:
+            except sqlite3.Error as err:
                 messagebox.showerror("Database Error", f"Error: {err}", parent=self.root)
 
         search_button = Button(
@@ -163,18 +146,11 @@ class Face_Recognation_System:
         )
         delete_button.grid(row=0, column=3, padx=50, pady=5, sticky=W)
 
-         # Refresh button
+        # ==================== Refresh Button ====================
         Refresh_button = Button(search_frame, text='Refresh', width=15,
                                 font=('times new roman', 13, 'bold'),
                                 bg='#9E9E9E', fg='white', command=self.Refresh_form)
         Refresh_button.grid(row=0, column=4, pady=5, padx=50)
-
-
-       
-        
-    
-
-
 
         # ==================== Table ====================
         table_frame = LabelFrame(
@@ -193,7 +169,7 @@ class Face_Recognation_System:
                      "email", "phone", "address", "teacher", "photo"),
             xscrollcommand=scroll_x.set,
             yscrollcommand=scroll_y.set,
-            selectmode="browse"  # single-select
+            selectmode="browse"
         )
 
         scroll_x.pack(side=BOTTOM, fill=X)
@@ -202,45 +178,21 @@ class Face_Recognation_System:
         scroll_y.config(command=self.student_table.yview)
 
         # Headings
-        self.student_table.heading("id", text="Student ID")
-        self.student_table.heading("name", text="Student Name")
-        self.student_table.heading("dep", text="Department")
-        self.student_table.heading("course", text="Course")
-        self.student_table.heading("year", text="Year")
-        self.student_table.heading("sem", text="Semester")
-        self.student_table.heading("section", text="Class Section")
-        self.student_table.heading("gender", text="Gender")
-        self.student_table.heading("blood", text="Blood Group")
-        self.student_table.heading("nationality", text="Nationality")
-        self.student_table.heading("email", text="Email")
-        self.student_table.heading("phone", text="Phone No")
-        self.student_table.heading("address", text="Address")
-        self.student_table.heading("teacher", text="Teacher Name")
-        self.student_table.heading("photo", text="Photo Sample")
+        headings = ["Student ID", "Student Name", "Department", "Course", "Year", "Semester",
+                    "Class Section", "Gender", "Blood Group", "Nationality",
+                    "Email", "Phone No", "Address", "Teacher Name", "Photo Sample"]
+        for col, text in zip(self.student_table["columns"], headings):
+            self.student_table.heading(col, text=text)
 
         self.student_table["show"] = "headings"
 
         # Column widths
-        self.student_table.column("id", width=100)
-        self.student_table.column("name", width=120)
-        self.student_table.column("dep", width=100)
-        self.student_table.column("course", width=100)
-        self.student_table.column("year", width=80)
-        self.student_table.column("sem", width=100)
-        self.student_table.column("section", width=100)
-        self.student_table.column("gender", width=80)
-        self.student_table.column("blood", width=80)
-        self.student_table.column("nationality", width=100)
-        self.student_table.column("email", width=150)
-        self.student_table.column("phone", width=100)
-        self.student_table.column("address", width=150)
-        self.student_table.column("teacher", width=120)
-        self.student_table.column("photo", width=100)
+        widths = [100,120,100,100,80,100,100,80,80,100,150,100,150,120,100]
+        for col, width in zip(self.student_table["columns"], widths):
+            self.student_table.column(col, width=width)
 
         self.student_table.pack(fill=BOTH, expand=1)
-        self.student_table.bind("<Double-1>", lambda event: self.back_to_details())
         self.student_table.bind("<Double-1>", self.open_selected_in_details)
-
 
         # Load data initially
         self.fetch_data()
@@ -256,47 +208,21 @@ class Face_Recognation_System:
         )
         back_btn.place(x=10, y=110)
 
-        def on_enter(e):
-            back_btn["bg"] = "#e74c3c"; back_btn["fg"] = "white"
-
-        def on_leave(e):
-            back_btn["bg"] = "#373773"; back_btn["fg"] = "white"
-
-        back_btn.bind("<Enter>", on_enter)
-        back_btn.bind("<Leave>", on_leave)
+        back_btn.bind("<Enter>", lambda e: back_btn.config(bg="#e74c3c"))
+        back_btn.bind("<Leave>", lambda e: back_btn.config(bg="#373773"))
 
     # ================== Fetch all data ==================
     def fetch_data(self):
         try:
-            conn = mysql.connector.connect(
-                host="localhost", user="root", password="", database="face_recognation"
-            )
+            conn = sqlite3.connect("face_recognation.db")
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT
-                    Student_ID,           -- id
-                    Student_Name,         -- name
-                    Department,           -- dep
-                    Course,               -- course
-                    Year,                 -- year
-                    Semester,             -- sem
-                    Class_Section,        -- section
-                    Gender,               -- gender
-                    Blood_Group,          -- blood
-                    Nationality,          -- nationality
-                    Email,                -- email
-                    Phone_No,             -- phone
-                    Address,              -- address
-                    Teacher_Name,         -- teacher
-                    Photo_Sample          -- photo
-                FROM face_recognizer
-            """)
+            cursor.execute("SELECT * FROM face_recognizer")
             rows = cursor.fetchall()
             self.student_table.delete(*self.student_table.get_children())
             for row in rows:
                 self.student_table.insert('', END, values=row)
             conn.close()
-        except mysql.connector.Error as err:
+        except sqlite3.Error as err:
             messagebox.showerror("Database Error", f"Error: {err}", parent=self.root)
 
     # ================== Delete function ==================
@@ -308,11 +234,7 @@ class Face_Recognation_System:
 
         item_id = sel[0]
         values = self.student_table.item(item_id, "values")
-        if not values or len(values) < 1:
-            messagebox.showerror("Error", "Could not read the selected row.", parent=self.root)
-            return
-
-        student_id = values[0]  # ensured by explicit SELECT order
+        student_id = values[0]
 
         ok = messagebox.askyesno(
             "Confirm Delete",
@@ -322,53 +244,37 @@ class Face_Recognation_System:
         if not ok:
             return
 
-        try:
-            deleted = self.delete_from_db(student_id)
-            if not deleted:
-                messagebox.showerror("Not Found", f"Student ID {student_id} not found.", parent=self.root)
-                return
-        except Exception as e:
-            messagebox.showerror("Database Error", f"Failed to delete: {e}", parent=self.root)
-            return
-
-        self.fetch_data()
-        messagebox.showinfo("Deleted", f"Student ID {student_id} deleted successfully.", parent=self.root)
+        deleted = self.delete_from_db(student_id)
+        if deleted:
+            self.fetch_data()
+            messagebox.showinfo("Deleted", f"Student ID {student_id} deleted successfully.", parent=self.root)
+        else:
+            messagebox.showerror("Error", f"Failed to delete Student ID {student_id}", parent=self.root)
 
     def delete_from_db(self, student_id):
-        conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="face_recognation"
-        )
-        cur = conn.cursor()
-        cur.execute("DELETE FROM face_recognizer WHERE Student_ID = %s", (student_id,))
-        conn.commit()
-        rowcount = cur.rowcount
-        cur.close()
-        conn.close()
-        return rowcount > 0
-    
+        try:
+            conn = sqlite3.connect("face_recognation.db")
+            cur = conn.cursor()
+            cur.execute("DELETE FROM face_recognizer WHERE Student_ID = ?", (student_id,))
+            conn.commit()
+            rowcount = cur.rowcount
+            cur.close()
+            conn.close()
+            return rowcount > 0
+        except sqlite3.Error as err:
+            messagebox.showerror("Database Error", f"Error: {err}", parent=self.root)
+            return False
 
-
+    # ================== Open selected record ==================
     def open_selected_in_details(self, event=None):
-        item_id = self.student_table.identify_row(event.y) if event else None
-        if not item_id:
-            sel = self.student_table.selection()
-            if not sel:
-                messagebox.showwarning("No selection", "Please double-click a row.", parent=self.root)
-                return
-            item_id = sel[0]
-
-        values = self.student_table.item(item_id, "values")
-        if not values or len(values) < 15:
-            messagebox.showerror("Error", "Could not read row values.", parent=self.root)
+        sel = self.student_table.selection()
+        if not sel:
             return
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        details_path = os.path.join(base_dir, "Student_Details.py")
-        if not os.path.exists(details_path):
-            messagebox.showerror("Path Error", f"Student_Details.py not found:\n{details_path}", parent=self.root)
+        item_id = sel[0]
+        values = self.student_table.item(item_id, "values")
+        if len(values) < 15:
+            messagebox.showerror("Error", "Incomplete data!", parent=self.root)
             return
 
         student = {
@@ -390,6 +296,7 @@ class Face_Recognation_System:
         }
 
         try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
             temp_path = os.path.join(base_dir, "temp.json")
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(student, f, ensure_ascii=False, indent=2)
@@ -400,26 +307,19 @@ class Face_Recognation_System:
         try:
             self.root.destroy()
         finally:
+            details_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Student_Details.py")
             subprocess.Popen([sys.executable, details_path])
 
-
-    # ================== back function ==================
+    # ================== Back function ==================
     def back_to_details(self):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        details_path = os.path.join(base_dir, "Student_Details.py")
-
+        details_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Student_Details.py")
         if not os.path.exists(details_path):
-            messagebox.showerror("Path Error", f"Student_Details.py not found at:\n{details_path}", parent=self.root)
+            messagebox.showerror("Path Error", f"Student_Details.py not found:\n{details_path}", parent=self.root)
             return
-
         self.root.destroy()
         subprocess.Popen([sys.executable, details_path])
 
-
-
-        
-
- # Refresh method – class method হিসেবে
+    # ================== Refresh ==================
     def Refresh_form(self):
         self.var_dep.set("")
         self.var_course.set("")
@@ -435,13 +335,8 @@ class Face_Recognation_System:
         self.var_blood.set("")
         self.var_nationality.set("")
         self.var_teacher.set("")
-        self.var_radio1.set("")  
+        self.var_radio1.set("")
         self.selected_from_store = False
-
-    
-
-
-
 
 # ==================== Run Main Application ====================
 if __name__ == "__main__":

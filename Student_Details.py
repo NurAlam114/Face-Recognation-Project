@@ -283,7 +283,7 @@ class Student_Details:
             self.var_blood.set("")
             self.var_nationality.set("")
             self.var_teacher.set("")
-            self.var_radio1.set("")   # ✅ এখন কোনো রেডিওবাটন সিলেক্ট থাকবে না
+            self.var_radio1.set("")   
             # flow reset
             self.selected_from_store = False
 
@@ -379,7 +379,7 @@ class Student_Details:
         # flow reset
         self.selected_from_store = False
 
-    # =============== INSERT ===============
+        # =============== INSERT ===============
     def add_data(self):
         if self.var_dep.get() == "":
             messagebox.showerror("Error", "Department is required", parent=self.root); return False
@@ -421,9 +421,8 @@ class Student_Details:
             return False
 
         try:
-            conn = mysql.connector.connect(
-                host="localhost", user="root", password="", database="face_recognation"
-            )
+            import sqlite3
+            conn = sqlite3.connect("face_recognation.db")
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -431,7 +430,7 @@ class Student_Details:
                     Student_ID, Student_Name, Department, Course, Year, Semester,
                     Class_Section, Gender, Blood_Group, Nationality, Email, Phone_No,
                     Address, Teacher_Name, Photo_Sample
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     std_id, self.var_std_name.get(), self.var_dep.get(), self.var_course.get(),
@@ -443,14 +442,15 @@ class Student_Details:
             conn.commit()
             messagebox.showinfo("Success", "Successfully added student details", parent=self.root)
             return True
-        except mysql.connector.Error as err:
+        except sqlite3.Error as err:
             messagebox.showerror("Database Error", f"Error: {err}", parent=self.root)
             return False
         finally:
             try: conn.close()
             except: pass
 
-    # =============== UPDATE ===============
+
+       # =============== UPDATE ===============
     def update_data(self):
         # new ID (what user typed now)
         new_id = str(self.var_std_id.get()).strip()
@@ -471,13 +471,12 @@ class Student_Details:
         phone_val = to_int_or_none(self.var_phone.get())
 
         try:
-            conn = mysql.connector.connect(
-                host="localhost", user="root", password="", database="face_recognation",
-            )
+            import sqlite3
+            conn = sqlite3.connect("face_recognation.db")
             cursor = conn.cursor()
 
             # 1) original row exists?
-            cursor.execute("SELECT COUNT(*) FROM face_recognizer WHERE Student_ID=%s", (original_id,))
+            cursor.execute("SELECT COUNT(*) FROM face_recognizer WHERE Student_ID=?", (original_id,))
             if cursor.fetchone()[0] == 0:
                 messagebox.showwarning("Not Found", f"No record found for Student ID: {original_id}", parent=self.root)
                 return
@@ -485,7 +484,7 @@ class Student_Details:
             # 2) if user changed ID, ensure new_id not used by another row
             if new_id != original_id:
                 cursor.execute(
-                    "SELECT COUNT(*) FROM face_recognizer WHERE Student_ID=%s AND Student_ID<>%s",
+                    "SELECT COUNT(*) FROM face_recognizer WHERE Student_ID=? AND Student_ID<>?",
                     (new_id, original_id)
                 )
                 if cursor.fetchone()[0] > 0:
@@ -496,22 +495,22 @@ class Student_Details:
             cursor.execute(
                 """
                 UPDATE face_recognizer SET
-                    Student_ID=%s,
-                    Student_Name=%s,
-                    Department=%s,
-                    Course=%s,
-                    Year=%s,
-                    Semester=%s,
-                    Class_Section=%s,
-                    Gender=%s,
-                    Blood_Group=%s,
-                    Nationality=%s,
-                    Email=%s,
-                    Phone_No=%s,
-                    Address=%s,
-                    Teacher_Name=%s,
-                    Photo_Sample=%s
-                WHERE Student_ID=%s
+                    Student_ID=?,
+                    Student_Name=?,
+                    Department=?,
+                    Course=?,
+                    Year=?,
+                    Semester=?,
+                    Class_Section=?,
+                    Gender=?,
+                    Blood_Group=?,
+                    Nationality=?,
+                    Email=?,
+                    Phone_No=?,
+                    Address=?,
+                    Teacher_Name=?,
+                    Photo_Sample=?
+                WHERE Student_ID=?
                 """,
                 (
                     new_id,
@@ -531,11 +530,12 @@ class Student_Details:
                 self.original_id = new_id
                 messagebox.showinfo("Success", "Student details updated successfully.", parent=self.root)
 
-        except mysql.connector.Error as err:
+        except sqlite3.Error as err:
             messagebox.showerror("Database Error", f"Error: {err}", parent=self.root)
         finally:
             try: conn.close()
             except: pass
+
 
 
 
@@ -552,18 +552,13 @@ class Student_Details:
             return
         try:
             sid = str(self.var_std_id.get())
-            import mysql.connector
+            import sqlite3
             import pyttsx3
             import threading
             import time, os, cv2
 
             # ========== DB Update ==========
-            conn = mysql.connector.connect(
-                host="localhost",
-                user="root",
-                password="",
-                database="face_recognation"
-            )
+            conn = sqlite3.connect("face_recognation.db")
             my_cursor = conn.cursor()
             my_cursor.execute("select * from face_recognizer")
             _ = my_cursor.fetchall()
@@ -571,22 +566,22 @@ class Student_Details:
             my_cursor.execute(
                 """
                 UPDATE face_recognizer SET
-                    Student_ID=%s,
-                    Student_Name=%s,
-                    Department=%s,
-                    Course=%s,
-                    Year=%s,
-                    Semester=%s,
-                    Class_Section=%s,
-                    Gender=%s,
-                    Blood_Group=%s,
-                    Nationality=%s,
-                    Email=%s,
-                    Phone_No=%s,
-                    Address=%s,
-                    Teacher_Name=%s,
-                    Photo_Sample=%s
-                WHERE Student_ID=%s
+                    Student_ID=?,
+                    Student_Name=?,
+                    Department=?,
+                    Course=?,
+                    Year=?,
+                    Semester=?,
+                    Class_Section=?,
+                    Gender=?,
+                    Blood_Group=?,
+                    Nationality=?,
+                    Email=?,
+                    Phone_No=?,
+                    Address=?,
+                    Teacher_Name=?,
+                    Photo_Sample=?
+                WHERE Student_ID=?
                 """,
                 (
                     sid,
@@ -748,6 +743,7 @@ class Student_Details:
 
         except Exception as es:
             messagebox.showerror("Error", f"Due To: {str(es)}", parent=self.root)
+
 
 
       
