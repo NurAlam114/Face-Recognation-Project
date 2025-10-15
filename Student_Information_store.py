@@ -7,6 +7,7 @@ import os, sys
 import json
 import sqlite3
 
+
 class Face_Recognation_System:
     def __init__(self, root):
         self.root = root
@@ -30,6 +31,7 @@ class Face_Recognation_System:
         self.var_teacher = StringVar()
         self.var_radio1 = StringVar()
         self.selected_from_store = False
+        self.search_var = StringVar()
 
         # ==================== Background Image ====================
         img_bg = Image.open(r"C:\Users\Asus\OneDrive\Desktop\Acadamic\Final Project\Face Recognation\UI Image\background.jpg")
@@ -72,41 +74,41 @@ class Face_Recognation_System:
         )
         search_label.grid(row=0, column=0, padx=50, pady=5, sticky=W)
 
-        self.search_var = StringVar()
-        search_entry = Entry(
+        # ✅ make search_entry a class variable
+        self.search_entry = Entry(
             search_frame, textvariable=self.search_var,
             font=("times new roman", 13, "bold"),
             width=20, fg="gray"
         )
-        search_entry.grid(row=0, column=1, padx=10, sticky="w")
-        search_entry.insert(0, "Id")
+        self.search_entry.grid(row=0, column=1, padx=10, sticky="w")
+        self.search_entry.insert(0, "Id")
 
         def on_entry_click(event):
-            if search_entry.get() == "Id":
-                search_entry.delete(0, "end")
-                search_entry.config(fg="black")
+            if self.search_entry.get() == "Id":
+                self.search_entry.delete(0, "end")
+                self.search_entry.config(fg="black")
 
         def on_focusout(event):
-            if search_entry.get() == "":
-                search_entry.insert(0, "Id")
-                search_entry.config(fg="gray")
+            if self.search_entry.get() == "":
+                self.search_entry.insert(0, "Id")
+                self.search_entry.config(fg="gray")
 
-        search_entry.bind("<FocusIn>", on_entry_click)
-        search_entry.bind("<FocusOut>", on_focusout)
+        self.search_entry.bind("<FocusIn>", on_entry_click)
+        self.search_entry.bind("<FocusOut>", on_focusout)
 
+        # ==================== Fixed Search Action ====================
         def search_action():
             user_id = self.search_var.get().strip()
-            if user_id == "" or user_id.lower() == "id":
-                messagebox.showwarning("Warning", "Please enter a valid Id!", parent=self.root)
-                return
 
-            # Clear table first
-            for i in self.student_table.get_children():
-                self.student_table.delete(i)
+            # validation
+            if user_id == "" or user_id.lower() == "id":
+                messagebox.showwarning("Warning", "Please enter a valid Student ID!", parent=self.root)
+                return
 
             try:
                 conn = sqlite3.connect("face_recognation.db")
                 cursor = conn.cursor()
+
                 cursor.execute("""
                     SELECT
                         Student_ID, Student_Name, Department, Course,
@@ -114,17 +116,24 @@ class Face_Recognation_System:
                         Nationality, Email, Phone_No, Address, Teacher_Name,
                         Photo_Sample
                     FROM face_recognizer
-                    WHERE Student_ID = ?
+                    WHERE CAST(Student_ID AS TEXT) LIKE ?
                 """, (user_id,))
+
                 rows = cursor.fetchall()
-                if rows:
+
+                # clear previous results
+                self.student_table.delete(*self.student_table.get_children())
+
+                if len(rows) == 0:
+                    messagebox.showinfo("Result", f"No record found for Student ID: {user_id}", parent=self.root)
+                else:
                     for row in rows:
                         self.student_table.insert('', END, values=row)
-                else:
-                    messagebox.showinfo("Search Result", f"No result for ID: {user_id}", parent=self.root)
+
                 conn.close()
+
             except sqlite3.Error as err:
-                messagebox.showerror("Database Error", f"Error: {err}", parent=self.root)
+                messagebox.showerror("Database Error", f"Error while searching:\n{err}", parent=self.root)
 
         search_button = Button(
             search_frame, text="Search",
@@ -147,9 +156,12 @@ class Face_Recognation_System:
         delete_button.grid(row=0, column=3, padx=50, pady=5, sticky=W)
 
         # ==================== Refresh Button ====================
-        Refresh_button = Button(search_frame, text='Refresh', width=15,
-                                font=('times new roman', 13, 'bold'),
-                                bg='#9E9E9E', fg='white', command=self.Refresh_form)
+        Refresh_button = Button(
+            search_frame, text='Refresh', width=15,
+            font=('times new roman', 13, 'bold'),
+            bg='#9E9E9E', fg='white',
+            command=self.Refresh_form
+        )
         Refresh_button.grid(row=0, column=4, pady=5, padx=50)
 
         # ==================== Table ====================
@@ -177,7 +189,6 @@ class Face_Recognation_System:
         scroll_x.config(command=self.student_table.xview)
         scroll_y.config(command=self.student_table.yview)
 
-        # Headings
         headings = ["Student ID", "Student Name", "Department", "Course", "Year", "Semester",
                     "Class Section", "Gender", "Blood Group", "Nationality",
                     "Email", "Phone No", "Address", "Teacher Name", "Photo Sample"]
@@ -186,8 +197,7 @@ class Face_Recognation_System:
 
         self.student_table["show"] = "headings"
 
-        # Column widths
-        widths = [100,120,100,100,80,100,100,80,80,100,150,100,150,120,100]
+        widths = [100, 120, 100, 100, 80, 100, 100, 80, 80, 100, 150, 100, 150, 120, 100]
         for col, width in zip(self.student_table["columns"], widths):
             self.student_table.column(col, width=width)
 
@@ -278,21 +288,21 @@ class Face_Recognation_System:
             return
 
         student = {
-            "id":         str(values[0]),
-            "name":       values[1],
-            "dept":       values[2],
-            "course":     values[3],
-            "year":       str(values[4]),
-            "sem":        values[5],
-            "section":    values[6],
-            "gender":     values[7],
-            "blood":      values[8],
-            "nationality":values[9],
-            "email":      values[10],
-            "phone":      str(values[11]),
-            "address":    values[12],
-            "teacher":    values[13],
-            "photo":      values[14],
+            "id": str(values[0]),
+            "name": values[1],
+            "dept": values[2],
+            "course": values[3],
+            "year": str(values[4]),
+            "sem": values[5],
+            "section": values[6],
+            "gender": values[7],
+            "blood": values[8],
+            "nationality": values[9],
+            "email": values[10],
+            "phone": str(values[11]),
+            "address": values[12],
+            "teacher": values[13],
+            "photo": values[14],
         }
 
         try:
@@ -337,6 +347,16 @@ class Face_Recognation_System:
         self.var_teacher.set("")
         self.var_radio1.set("")
         self.selected_from_store = False
+
+        #  Reset search box & placeholder
+        self.search_var.set("")
+        self.search_entry.delete(0, "end")
+        self.search_entry.insert(0, "Id")
+        self.search_entry.config(fg="gray")
+
+        #  Refresh table data
+        self.fetch_data()
+
 
 # ==================== Run Main Application ====================
 if __name__ == "__main__":
