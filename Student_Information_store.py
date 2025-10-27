@@ -74,7 +74,7 @@ class Face_Recognation_System:
         )
         search_label.grid(row=0, column=0, padx=50, pady=5, sticky=W)
 
-        # ✅ make search_entry a class variable
+        # make search_entry a class variable
         self.search_entry = Entry(
             search_frame, textvariable=self.search_var,
             font=("times new roman", 13, "bold"),

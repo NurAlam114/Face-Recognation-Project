@@ -3,6 +3,7 @@ from tkinter import ttk
 from PIL import Image, ImageTk  # pillow
 import subprocess
 import os
+import sqlite3
 
 class Face_Recognation_System:
     def exit_app(self):
@@ -50,15 +51,21 @@ class Face_Recognation_System:
 
 
         # ==================== Face Detector Button ====================
+        def open_Face_Recognization():
+            self.root.destroy()
+            subprocess.Popen(["python", "Face_Recognization.py"])
+
         img_face = Image.open(r"C:\Users\Asus\OneDrive\Desktop\Acadamic\Final Project\Face Recognation\UI Image\face_detect.png")
         img_face = img_face.resize((250, 220), Image.LANCZOS)
         self.photoimg_face = ImageTk.PhotoImage(img_face)
 
-        btn_face_img = Button(bg_image, image=self.photoimg_face, cursor='hand2')
+        btn_face_img = Button(bg_image, image=self.photoimg_face, cursor='hand2',
+                              command=open_Face_Recognization)
         btn_face_img.place(x=500, y=150, width=220, height=220)
 
         btn_face_text = Button(bg_image, text="Face Detector", cursor='hand2',
-                               font=('times new roman', 15, "bold"), bg='darkblue', fg='white')
+                               font=('times new roman', 15, "bold"), bg='darkblue', fg='white',
+                               command=open_Face_Recognization)
         btn_face_text.place(x=500, y=360, width=220, height=40)
 
 

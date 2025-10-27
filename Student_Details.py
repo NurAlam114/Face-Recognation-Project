@@ -552,10 +552,7 @@ class Student_Details:
             return
         try:
             sid = str(self.var_std_id.get())
-            import sqlite3
-            import pyttsx3
-            import threading
-            import time, os, cv2
+            import sqlite3, pyttsx3, threading, time, os, cv2
 
             # ========== DB Update ==========
             conn = sqlite3.connect("face_recognation.db")
@@ -566,47 +563,24 @@ class Student_Details:
             my_cursor.execute(
                 """
                 UPDATE face_recognizer SET
-                    Student_ID=?,
-                    Student_Name=?,
-                    Department=?,
-                    Course=?,
-                    Year=?,
-                    Semester=?,
-                    Class_Section=?,
-                    Gender=?,
-                    Blood_Group=?,
-                    Nationality=?,
-                    Email=?,
-                    Phone_No=?,
-                    Address=?,
-                    Teacher_Name=?,
-                    Photo_Sample=?
+                    Student_ID=?, Student_Name=?, Department=?, Course=?, Year=?, Semester=?,
+                    Class_Section=?, Gender=?, Blood_Group=?, Nationality=?, Email=?, Phone_No=?,
+                    Address=?, Teacher_Name=?, Photo_Sample=?
                 WHERE Student_ID=?
                 """,
                 (
-                    sid,
-                    self.var_std_name.get(),
-                    self.var_dep.get(),
-                    self.var_course.get(),
-                    self.var_year.get(),
-                    self.var_semester.get(),
-                    self.var_sec.get(),
-                    self.var_gender.get(),
-                    self.var_blood.get(),
-                    self.var_nationality.get(),
-                    self.var_email.get(),
-                    self.var_phone.get(),
-                    self.var_address.get(),
-                    self.var_teacher.get(),
-                    self.var_radio1.get(),
-                    sid,
+                    sid, self.var_std_name.get(), self.var_dep.get(), self.var_course.get(),
+                    self.var_year.get(), self.var_semester.get(), self.var_sec.get(),
+                    self.var_gender.get(), self.var_blood.get(), self.var_nationality.get(),
+                    self.var_email.get(), self.var_phone.get(), self.var_address.get(),
+                    self.var_teacher.get(), self.var_radio1.get(), sid,
                 )
             )
             conn.commit()
             self.reset_form()
             conn.close()
 
-            # ====== Face detectors ======
+            # ====== Load cascades ======
             face_cascade_path = "haarcascade_frontalface_default.xml"
             profile_cascade_path = "haarcascade_profileface.xml"
             if not os.path.exists(face_cascade_path):
@@ -631,35 +605,42 @@ class Student_Details:
                         pass
                 threading.Thread(target=run_voice, daemon=True).start()
 
-            # ====== Helper: pick best face (Frontal + Left + Right) ======
+            # ====== Improved Face Cropper ======
             def face_cropped_best(img):
                 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                faces_f = face_classifier.detectMultiScale(gray, 1.2, 6, minSize=(80, 80))
-                faces_p = profile_cascade.detectMultiScale(gray, 1.2, 6, minSize=(80, 80))
 
-                # Left profile detection by flipping
+                # Detect faces
+                faces_f = face_classifier.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(80, 80))
+                faces_r = profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(80, 80))
+
+                # Left profile by flipping
                 gray_flipped = cv2.flip(gray, 1)
-                faces_p_flipped = profile_cascade.detectMultiScale(gray_flipped, 1.2, 6, minSize=(80, 80))
-                faces_p_flipped_corrected = []
-                for (x, y, w, h) in faces_p_flipped:
-                    x_corrected = gray.shape[1] - x - w
-                    faces_p_flipped_corrected.append((x_corrected, y, w, h))
+                faces_l = profile_cascade.detectMultiScale(gray_flipped, scaleFactor=1.1, minNeighbors=5, minSize=(80, 80))
+                width = gray.shape[1]
+                faces_l_corrected = [(width - x - w, y, w, h) for (x, y, w, h) in faces_l]
 
-                candidates = list(faces_f) + list(faces_p) + faces_p_flipped_corrected
+                candidates = list(faces_f) + list(faces_r) + faces_l_corrected
                 if not candidates:
                     return None, None
 
-                x1, y1, x2, y2, _ = sorted(
-                    [(x, y, x + w, y + h, w * h) for (x, y, w, h) in candidates],
-                    key=lambda t: t[4],
-                    reverse=True
-                )[0]
+                # Choose largest face
+                x, y, w, h = max(candidates, key=lambda r: r[2] * r[3])
+
+                # Add safe margin
+                margin = int(0.1 * w)  # 10% margin
+                x1 = max(0, x - margin)
+                y1 = max(0, y - margin)
+                x2 = min(img.shape[1] - 1, x + w + margin)
+                y2 = min(img.shape[0] - 1, y + h + margin)
+
+                if x2 <= x1 or y2 <= y1:
+                    return None, None
 
                 crop = img[y1:y2, x1:x2]
-                return crop, (x1, y1, x2, y2)
+                face_resized = cv2.resize(crop, (500, 500), interpolation=cv2.INTER_AREA)
+                return face_resized, (x1, y1, x2, y2)
 
-
-            # ====== Camera init ======
+            # ====== Camera setup ======
             cap = cv2.VideoCapture(0)
             if not cap.isOpened():
                 messagebox.showerror("Error", "Camera not accessible!", parent=self.root)
@@ -671,14 +652,9 @@ class Student_Details:
             save_dir = "Sample image data"
             os.makedirs(save_dir, exist_ok=True)
 
-            messagebox.showinfo(
-                "Info",
-                "Camera is ON.\nFollow the instructions.\nPress Enter to stop early.",
-                parent=self.root
-            )
-
+            messagebox.showinfo("Info", "Camera is ON.\nFollow the voice instructions.\nPress Enter or Q to stop early.", parent=self.root)
             instructions = [
-                ("Look Straight", "Straight"),
+                ("Look Straight", "Front"),
                 ("Turn Left", "Left"),
                 ("Turn Right", "Right"),
                 ("Look Down", "Down"),
@@ -686,7 +662,7 @@ class Student_Details:
             instruction_index = 0
             photos_per_pose = 25
             per_pose_count = 0
-            pose_switch_grace_s = 1.5
+            pose_switch_grace_s = 2
             pose_ready_at = time.time() + pose_switch_grace_s
 
             speak_async("Camera is on. Please follow my instructions.")
@@ -698,29 +674,29 @@ class Student_Details:
                 if not ret:
                     break
 
-                current_instruction = instructions[instruction_index][0]
-
-                cv2.putText(frame, f"Instruction: {current_instruction}", (20, 40),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
-                cv2.putText(frame, f"Pose {instruction_index+1}/{len(instructions)}  Photo {per_pose_count}/{photos_per_pose}", (20, 80),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+                frame = cv2.flip(frame, 1)
+                instruction_text = instructions[instruction_index][0]
+                cv2.putText(frame, f"Instruction: {instruction_text}", (20, 40),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 255, 0), 3)
+                cv2.putText(frame, f"Pose {instruction_index+1}/{len(instructions)}  Photo {per_pose_count}/{photos_per_pose}",
+                            (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
                 face, box = face_cropped_best(frame)
 
-                if face is not None and face.size > 0 and time.time() >= pose_ready_at:
+                if face is not None and time.time() >= pose_ready_at:
                     img_id += 1
                     per_pose_count += 1
 
-                    face_resized = cv2.resize(face, (500, 500))
-                    face_gray = cv2.cvtColor(face_resized, cv2.COLOR_BGR2GRAY)
                     file_name_path = os.path.join(save_dir, f"user.{sid}.{img_id}.jpg")
+                    face_gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
                     cv2.imwrite(file_name_path, face_gray)
 
                     if box:
                         x1, y1, x2, y2 = box
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
                     cv2.putText(frame, f"Saved: {img_id}", (20, 120),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
 
                     if per_pose_count >= photos_per_pose:
                         instruction_index += 1
@@ -732,14 +708,14 @@ class Student_Details:
                             break
 
                 cv2.imshow("Camera Preview", frame)
-                key = cv2.waitKey(150) & 0xFF
+                key = cv2.waitKey(100) & 0xFF
                 if key == 13 or key == ord('q'):
                     break
 
             cap.release()
             cv2.destroyAllWindows()
-            speak_async("Dataset generation completed.")
-            messagebox.showinfo("Result", f"Generating data sets completed!\nSaved: {img_id} samples", parent=self.root)
+            speak_async("Dataset generation completed successfully.")
+            messagebox.showinfo("Result", f"Dataset generation completed!\nSaved {img_id} samples.", parent=self.root)
 
         except Exception as es:
             messagebox.showerror("Error", f"Due To: {str(es)}", parent=self.root)
